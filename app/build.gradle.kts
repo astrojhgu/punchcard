@@ -13,8 +13,8 @@ android {
         // 目标机是 Android 13+ 的小米 HyperOS。targetSdk 34 而不是 35：
         // 避免强制 edge-to-edge 带来的额外适配成本，行为更可预测。
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     /**

@@ -27,6 +27,10 @@ object DocxGenerator {
     const val AM_ROW = 5
     const val PM_ROW = 6
 
+    /** 姓名格：第 5 行第 0 列 —— 和「上午」同行，只是列在最左边。 */
+    const val NAME_ROW = 5
+    private const val NAME_COLUMN = 0
+
     /** 1 日在逻辑网格里的列号（模板第 0 列是姓名，第 1 列是「日期/上午下午」）。 */
     private const val FIRST_DAY_COLUMN = 2
 
@@ -41,6 +45,8 @@ object DocxGenerator {
     data class DaySymbols(val am: String, val pm: String)
 
     data class Sheet(
+        /** 表格左上角「姓名」格里的名字，来自设置页。 */
+        val name: String,
         val department: String,
         val year: Int,
         val month: Int,
@@ -103,6 +109,22 @@ object DocxGenerator {
             replaceCell(xml, edits, amRow, column, symbols.am, day, AM_ROW)
             replaceCell(xml, edits, pmRow, column, symbols.pm, day, PM_ROW)
         }
+
+        // 3) 姓名格：只换 <w:t> 里的文字，保留 run、字体和格里的 _GoBack 书签。
+        //
+        //    这一格不能像日期格那样整体重写——它里面挂着 bookmarkStart/bookmarkEnd，
+        //    清空内容会把书签一起丢掉。
+        //
+        //    原 run.py 从不写这一格（它依赖模板里已经印好姓名），所以「设置里改了名字、
+        //    表里还是模板上那个名字，但文件名却跟着改了」——这里补上，让两者一致。
+        val nameCell = rows.getOrNull(NAME_ROW)
+            ?.firstOrNull { it.column == NAME_COLUMN }
+            ?: error("模板结构变化：第 $NAME_ROW 行找不到姓名格（第 $NAME_COLUMN 列）")
+        val nameTexts = XmlScan.descendants(xml, nameCell.element, "w:t")
+        require(nameTexts.size == 1) {
+            "模板结构变化：姓名格里有 ${nameTexts.size} 个 w:t 文本节点，预期恰好 1 个"
+        }
+        edits.add(Edit(nameTexts[0].contentStart, nameTexts[0].contentEnd, escapeXml(sheet.name)))
 
         // 从后往前替换，避免前面的编辑让后面的偏移失效。
         val sb = StringBuilder(xml)

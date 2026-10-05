@@ -45,6 +45,7 @@ object SheetExporter {
             )
         }
         return DocxGenerator.Sheet(
+            name = settings.name,
             department = settings.department,
             year = month.year,
             month = month.monthValue,

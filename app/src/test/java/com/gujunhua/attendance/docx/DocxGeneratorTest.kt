@@ -23,6 +23,13 @@ class DocxGeneratorTest {
 
     private val fixtureFile = File("src/test/resources/fixture.json")
 
+    /**
+     * 模板里已经印好的姓名。
+     * 基准对比必须用它 —— 原 run.py 不写姓名格，它依赖模板上那个字，
+     * 所以拿别的名字去对比会（正确地）失败。
+     */
+    private val templateName = "张三"
+
     private fun loadFixture(): Pair<String, Map<Int, DocxGenerator.DaySymbols>> {
         assertTrue(
             "fixture 不存在，先跑 tools/make_fixture.py: ${fixtureFile.absolutePath}",
@@ -47,6 +54,7 @@ class DocxGeneratorTest {
 
     private fun sheetOf(month: String, cells: Map<Int, DocxGenerator.DaySymbols>) =
         DocxGenerator.Sheet(
+            name = templateName,
             department = "某部门",
             year = month.substring(0, 4).toInt(),
             month = month.substring(4, 6).toInt(),
@@ -78,7 +86,7 @@ class DocxGeneratorTest {
 
     @Test
     fun headerIsWrittenIntoTemplate() {
-        val sheet = DocxGenerator.Sheet("某部门", 2026, 7, emptyMap())
+        val sheet = DocxGenerator.Sheet(templateName, "某部门", 2026, 7, emptyMap())
         val xml = DocxTestSupport.readDocumentXml(DocxGenerator.render(DocxTestSupport.templateBytes(), sheet))
         assertTrue(
             "标题没有写进 document.xml",
@@ -87,10 +95,45 @@ class DocxGeneratorTest {
     }
 
     @Test
+    fun writesPersonNameIntoTemplate() {
+        // 设置页改了姓名，表里必须跟着改。
+        // 以前这一格是模板写死的，会出现「文件名是李四、表里却印着张三」的自相矛盾。
+        val sheet = DocxGenerator.Sheet("李四", "某部门", 2026, 7, emptyMap())
+        val xml = DocxTestSupport.readDocumentXml(DocxGenerator.render(DocxTestSupport.templateBytes(), sheet))
+        assertEquals("李四", DocxTestSupport.cellText(xml, DocxGenerator.NAME_ROW, 0))
+    }
+
+    @Test
+    fun renamingPersonKeepsBookmarksIntact() {
+        // 姓名格里挂着 _GoBack 书签，所以改名字只能换 <w:t> 的文字，
+        // 不能像日期格那样整体重写单元格内容 —— 那会把书签一起清掉。
+        val sheet = DocxGenerator.Sheet("王五", "某部门", 2026, 7, emptyMap())
+        val xml = DocxTestSupport.readDocumentXml(DocxGenerator.render(DocxTestSupport.templateBytes(), sheet))
+        assertTrue("姓名格里的 bookmarkStart 被弄丢了", xml.contains("<w:bookmarkStart"))
+        assertTrue("姓名格里的 bookmarkEnd 被弄丢了", xml.contains("<w:bookmarkEnd"))
+        assertEquals("王五", DocxTestSupport.cellText(xml, DocxGenerator.NAME_ROW, 0))
+    }
+
+    @Test
+    fun renamingPersonKeepsTheCellFont() {
+        // 姓名格在模板里是宋体（和日期格的仿宋不同）。换名字不该把字体也换掉，
+        // 否则表里姓名的观感会和历史文件不一致。
+        val sheet = DocxGenerator.Sheet("赵六", "某部门", 2026, 7, emptyMap())
+        val xml = DocxTestSupport.readDocumentXml(DocxGenerator.render(DocxTestSupport.templateBytes(), sheet))
+        val at = xml.indexOf("赵六")
+        assertTrue("生成的 XML 里找不到新姓名", at > 0)
+        val runBefore = xml.substring(maxOf(0, at - 500), at)
+        assertTrue(
+            "姓名 run 的字体被改动了，本该保留宋体",
+            runBefore.contains("w:ascii=\"宋体\""),
+        )
+    }
+
+    @Test
     fun daysWithoutRecordKeepTemplateCellsUntouched() {
         // 只填 1 日时，其余格子必须保持模板原样（空段落），不能被写成别的日期。
         val sheet = DocxGenerator.Sheet(
-            "某部门", 2026, 7,
+            templateName, "某部门", 2026, 7,
             mapOf(1 to DocxGenerator.DaySymbols("√", "○")),
         )
         val xml = DocxTestSupport.readDocumentXml(DocxGenerator.render(DocxTestSupport.templateBytes(), sheet))
@@ -105,7 +148,10 @@ class DocxGeneratorTest {
     @Test
     fun otherZipEntriesArePassedThroughByteForByte() {
         val template = DocxTestSupport.templateBytes()
-        val sheet = DocxGenerator.Sheet("某部门", 2026, 7, mapOf(1 to DocxGenerator.DaySymbols("√", "√")))
+        val sheet = DocxGenerator.Sheet(
+            templateName, "某部门", 2026, 7,
+            mapOf(1 to DocxGenerator.DaySymbols("√", "√")),
+        )
         val produced = DocxGenerator.render(template, sheet)
 
         val before = zipEntries(template)
