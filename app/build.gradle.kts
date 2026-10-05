@@ -29,25 +29,43 @@ android {
      * 数据保留，调试时不用来回卸载。
      *
      * 密码是明文的：个人自用、不发布到任何商店，密钥本身也不出这台机器。
+     *
+     * 密钥文件**不进版本库**（见 .gitignore）。所以 clone 下来的副本没有它，
+     * 这时回退到 AGP 的默认 debug 签名，保证别人（或你在新机器上）能构建成功；
+     * 代价是签出来的包跟已安装版本的证书不同，装不上去，只能卸载重装。
      */
+    val personalKeystore = rootProject.file("tools/attendance.keystore")
+
     signingConfigs {
-        create("personal") {
-            storeFile = rootProject.file("tools/attendance.keystore")
-            storePassword = "attendance"
-            keyAlias = "attendance"
-            keyPassword = "attendance"
+        if (personalKeystore.exists()) {
+            create("personal") {
+                storeFile = personalKeystore
+                storePassword = "attendance"
+                keyAlias = "attendance"
+                keyPassword = "attendance"
+            }
         }
+    }
+
+    val buildSigning = if (personalKeystore.exists()) {
+        signingConfigs.getByName("personal")
+    } else {
+        logger.warn(
+            "⚠ 找不到 tools/attendance.keystore，回退到 AGP 默认 debug 签名。" +
+                "这样签出来的包无法覆盖安装已装版本，只能卸载重装。"
+        )
+        signingConfigs.getByName("debug")
     }
 
     buildTypes {
         debug {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("personal")
+            signingConfig = buildSigning
         }
         release {
             // 不混淆：个人自用，可读的崩溃栈比省几百 KB 重要。
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("personal")
+            signingConfig = buildSigning
         }
     }
 
