@@ -53,7 +53,32 @@ bash tools/setup_android_sdk.sh
 
 ```bash
 tools/gradle.sh :app:assembleDebug      # -> app/build/outputs/apk/debug/app-debug.apk
-tools/gradle.sh :app:assembleRelease    # 用 debug 签名，方便直接侧载
+tools/gradle.sh :app:assembleRelease    # -> app/build/outputs/apk/release/app-release.apk
+```
+
+也可以直接用仓库里的 `./gradlew`（wrapper 已提交），它会自己下 Gradle 发行版。
+
+### 关于签名密钥
+
+`tools/attendance.keystore` **不在版本库里**（见 `.gitignore`）。它是这个 app 的身份：
+
+- **丢了** → 再也无法覆盖升级，只能卸载重装，记录全丢。换机器请手工拷贝。
+- **泄露** → 别人能签出你手机愿意接受的"更新包"。
+
+clone 下来的副本没有它，构建时会打印一条警告并回退到 AGP 默认 debug 签名 ——
+**依然能构建成功**，只是签出来的包跟已安装版本证书不同，装上去需要先卸载。
+
+`debug` 和 `release` 共用同一套密钥，所以调试包和发布包可以互相覆盖安装、数据保留。
+
+### 模板只有一个真源
+
+项目根目录的 `template.docx` 是唯一真源（原方案的 `run.py` 也用它）。
+`app/src/main/assets/template.docx` 由 `syncTemplate` 任务在构建时自动同步，**已加入 .gitignore，不要手工编辑**。
+
+改表里的姓名用脚本，不要直接编辑 docx：
+
+```bash
+python3 tools/set_template_name.py 张三     # 只改「姓名」那一格，其余字节原样透传
 ```
 
 ## 验证：怎么证明生成的表没跑偏
