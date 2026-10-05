@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#2E6B4F</color>
+
+    <color name="chip_selected_bg">#2E6B4F</color>
+    <color name="chip_selected_fg">#FFFFFF</color>
+    <color name="chip_stroke">#B0B0B0</color>
+    <color name="chip_fg">#333333</color>
+
+    <color name="day_filled">#2E6B4F</color>
+    <color name="day_empty">#C0392B</color>
+    <color name="day_weekend">#9E9E9E</color>
+</resources>

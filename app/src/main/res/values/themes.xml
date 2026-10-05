@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 固定浅色：个人自用，避免深色模式下自绘按钮的对比度问题。 -->
+    <style name="Theme.Attendance" parent="Theme.MaterialComponents.Light.DarkActionBar">
+        <item name="colorPrimary">#2E6B4F</item>
+        <item name="colorPrimaryDark">#23503B</item>
+    </style>
+</resources>
